@@ -4,13 +4,14 @@
 Your to-do list becomes a deck of tarot cards. Shuffle, draw, face your fate,
 and burn the card when the task is done.
 
-    py -3.13 tarot.py                 interactive menu
+    py -3.13 tarot.py                 enter tasks, draw, then press d/r/q
     py -3.13 tarot.py add "task" ...  inscribe tasks into the deck
     py -3.13 tarot.py draw            shuffle and draw your fate
-    py -3.13 tarot.py done [N]        burn the card in your hand (or card N)
-    py -3.13 tarot.py return          put the drawn card back (the deck will judge you)
+    py -3.13 tarot.py done [N]        burn the card in your hand (or card N); alias d
+    py -3.13 tarot.py return          put the drawn card back (the deck will judge you); alias r
     py -3.13 tarot.py list            see the whole deck
     py -3.13 tarot.py shuffle         shuffle the deck
+    py -3.13 tarot.py menu            interactive menu
 
 Pure standard library (Python 3.13 via the py launcher). Set TAROT_DECK to use a different deck
 file, TAROT_NO_ANIM=1 or --no-anim to skip animations, NO_COLOR=1 for plain text.
@@ -596,20 +597,22 @@ def cmd_add(deck, tasks):
             len(deck.cards), "" if len(deck.cards) == 1 else "s"))
 
 
-def cmd_draw(deck):
+def cmd_draw(deck, hints=True):
+    """Show the card in hand, or shuffle and draw one. Returns it (or None)."""
     if deck.drawn:
         print()
         say("You already hold a card.", CRIMSON, bold=True)
         for line in card_frame(deck.drawn):
             print(line)
-        hint("Finish it:           {} done".format(RUN))
-        hint("Return it in shame:  {} return".format(RUN))
-        return
+        if hints:
+            hint("Finish it:           {} done".format(RUN))
+            hint("Return it in shame:  {} return".format(RUN))
+        return deck.drawn
     if not deck.cards:
         print()
         say(EMPTY_DECK, CRIMSON, italic=True)
         hint('Add tasks with:  {} add "do the thing"'.format(RUN))
-        return
+        return None
     print()
     shuffle_anim(len(deck.cards))
     deck.shuffle()
@@ -619,8 +622,10 @@ def cmd_draw(deck):
     print()
     say("“" + random.choice(FORTUNES) + "”", CRIMSON, italic=True, typing=True)
     print()
-    hint("When it's done:  {} done".format(RUN))
-    hint("Cowardice:       {} return".format(RUN))
+    if hints:
+        hint("When it's done:  {} done".format(RUN))
+        hint("Cowardice:       {} return".format(RUN))
+    return card
 
 
 def cmd_done(deck, card_id=None):
@@ -691,6 +696,87 @@ def parse_card_number(text):
     raise TarotError("'{}' is not a card number.".format(text))
 
 
+def read_key():
+    """One key press, lowercased (R9).
+
+    At a terminal this reads a single key without waiting for Enter. With
+    piped input it takes the first character of the next line. End of input
+    or Ctrl+C gives "q"; a blank line gives "".
+    """
+    try:
+        if sys.stdin.isatty():
+            if os.name == "nt":
+                import msvcrt
+                ch = msvcrt.getwch()
+                if ch in ("\x00", "\xe0"):  # arrow/function keys send two codes
+                    msvcrt.getwch()
+                    return ""
+            else:
+                import termios
+                import tty
+                fd = sys.stdin.fileno()
+                saved = termios.tcgetattr(fd)
+                try:
+                    tty.setcbreak(fd)
+                    ch = sys.stdin.read(1)
+                finally:
+                    termios.tcsetattr(fd, termios.TCSADRAIN, saved)
+            if ch in ("", "\x03", "\x04", "\x1a"):  # EOF, Ctrl+C/D/Z
+                return "q"
+            return ch.lower()
+        line = sys.stdin.readline()
+    except (EOFError, KeyboardInterrupt):
+        return "q"
+    if not line:
+        return "q"
+    line = line.strip()
+    return line[0].lower() if line else ""
+
+
+def ask_quick_key():
+    """Prompt for d/r/q until one of them is pressed (R9)."""
+    while True:
+        say("[d] done   [r] return   [q] quit", GOLD, center=False)
+        if ANIMATE:
+            sys.stdout.write("\x1b[?25h")  # show cursor while waiting
+        sys.stdout.write(MARGIN + "› ")
+        sys.stdout.flush()
+        key = read_key()
+        print(key if sys.stdin.isatty() and key.isprintable() else "")
+        if key in ("d", "r", "q"):
+            return key
+        say("Press d, r or q. The cards do not wait for mumbling.", CRIMSON,
+            center=False)
+
+
+def ritual(deck):
+    """The no-argument flow (R8): enter tasks, then draw and decide (R9)."""
+    banner()
+    cmd_add(deck, [])
+    burned = 0
+    while True:
+        if burned and not deck.drawn and not deck.cards:
+            print()
+            say("The deck is empty. Every card is ash. Rest, victor.", PALE_GOLD,
+                italic=True)
+            print()
+            return
+        if cmd_draw(deck, hints=False) is None:
+            return
+        key = ask_quick_key()
+        if key == "d":
+            cmd_done(deck)
+            burned += 1
+        elif key == "r":
+            cmd_return(deck)
+        else:
+            print()
+            say("The cards will wait. They are very good at waiting.",
+                PURPLE, italic=True)
+            print()
+            return
+
+
 def menu(deck):
     banner()
     while True:
@@ -750,13 +836,14 @@ def build_parser():
     a = sub.add_parser("add", help="inscribe tasks into the deck")
     a.add_argument("tasks", nargs="*", help="one or more tasks (quote each)")
     sub.add_parser("draw", help="shuffle and draw your fate")
-    d = sub.add_parser("done", aliases=["discard", "finish", "burn"],
+    d = sub.add_parser("done", aliases=["d", "discard", "finish", "burn"],
                        help="burn the card in your hand, or card N")
     d.add_argument("number", nargs="?", help="card number (e.g. 3 or III)")
-    sub.add_parser("return", help="put the drawn card back in the deck")
+    sub.add_parser("return", aliases=["r"],
+                   help="put the drawn card back in the deck")
     sub.add_parser("list", help="show every card in the deck")
     sub.add_parser("shuffle", help="shuffle the deck")
-    sub.add_parser("menu", help="interactive menu (the default)")
+    sub.add_parser("menu", help="interactive menu")
     return p
 
 
@@ -766,16 +853,18 @@ def main(argv=None):
     try:
         deck = Deck(deck_path())
         cmd = args.command
-        if cmd in (None, "menu"):
+        if cmd is None:
+            ritual(deck)
+        elif cmd == "menu":
             menu(deck)
         elif cmd == "add":
             cmd_add(deck, args.tasks)
         elif cmd == "draw":
             cmd_draw(deck)
-        elif cmd in ("done", "discard", "finish", "burn"):
+        elif cmd in ("done", "d", "discard", "finish", "burn"):
             number = parse_card_number(args.number) if args.number else None
             cmd_done(deck, number)
-        elif cmd == "return":
+        elif cmd in ("return", "r"):
             cmd_return(deck)
         elif cmd == "list":
             cmd_list(deck)
