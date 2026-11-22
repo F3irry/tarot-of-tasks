@@ -1,0 +1,14 @@
+# Environments and dependencies
+.venv/
+node_modules/
+
+# Python caches
+__pycache__/
+.pytest_cache/
+
+# Logs / transcripts
+*.jsonl
+
+# The user's personal deck of tasks (never commit)
+deck.json
+deck.json.tmp
