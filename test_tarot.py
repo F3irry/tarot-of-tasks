@@ -139,7 +139,8 @@ def test_R3_draw_prints_a_message(deck_file, capsys, monkeypatch):
     monkeypatch.setenv("TAROT_DECK", deck_file)
     tarot.main(["--no-anim", "add", "x"])
     tarot.main(["--no-anim", "draw"])
-    out = capsys.readouterr().out
+    # The message is wrapped to sit under the card, so compare ignoring breaks.
+    out = " ".join(capsys.readouterr().out.split())
     assert any(msg in out for msg in tarot.FORTUNES)
 
 
