@@ -4,15 +4,15 @@
 Your to-do list becomes a deck of tarot cards. Shuffle, draw, face your fate,
 and burn the card when the task is done.
 
-    python tarot.py                 interactive menu
-    python tarot.py add "task" ...  inscribe tasks into the deck
-    python tarot.py draw            shuffle and draw your fate
-    python tarot.py done [N]        burn the card in your hand (or card N)
-    python tarot.py return          put the drawn card back (the deck will judge you)
-    python tarot.py list            see the whole deck
-    python tarot.py shuffle         shuffle the deck
+    py -3.13 tarot.py                 interactive menu
+    py -3.13 tarot.py add "task" ...  inscribe tasks into the deck
+    py -3.13 tarot.py draw            shuffle and draw your fate
+    py -3.13 tarot.py done [N]        burn the card in your hand (or card N)
+    py -3.13 tarot.py return          put the drawn card back (the deck will judge you)
+    py -3.13 tarot.py list            see the whole deck
+    py -3.13 tarot.py shuffle         shuffle the deck
 
-Pure standard library (Python 3.7+). Set TAROT_DECK to use a different deck
+Pure standard library (Python 3.13 via the py launcher). Set TAROT_DECK to use a different deck
 file, TAROT_NO_ANIM=1 or --no-anim to skip animations, NO_COLOR=1 for plain text.
 """
 
@@ -29,6 +29,7 @@ from datetime import datetime
 
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_DECK = os.path.join(APP_DIR, "deck.json")
+RUN = "py -3.13 tarot.py"  # how the user runs the app, shown in hints
 
 
 def deck_path():
@@ -206,7 +207,7 @@ class Deck:
         if card_id is None:
             if not self.drawn:
                 raise TarotError("Your hand is empty. Draw a card first, or name "
-                                 "one: tarot done <number>.")
+                                 "one: {} done <number>.".format(RUN))
             card, self.drawn = self.drawn, None
         elif self.drawn and self.drawn["id"] == card_id:
             card, self.drawn = self.drawn, None
@@ -565,7 +566,7 @@ def banner():
 
 
 def hint(text):
-    say(text, MUTED)
+    say(text, MUTED, center=False)
 
 
 def cmd_add(deck, tasks):
@@ -601,12 +602,13 @@ def cmd_draw(deck):
         say("You already hold a card.", CRIMSON, bold=True)
         for line in card_frame(deck.drawn):
             print(line)
-        say("Finish it (tarot done) or return it in shame (tarot return).", MUTED)
+        hint("Finish it:           {} done".format(RUN))
+        hint("Return it in shame:  {} return".format(RUN))
         return
     if not deck.cards:
         print()
         say(EMPTY_DECK, CRIMSON, italic=True)
-        hint('Add tasks with: tarot add "do the thing"')
+        hint('Add tasks with:  {} add "do the thing"'.format(RUN))
         return
     print()
     shuffle_anim(len(deck.cards))
@@ -617,7 +619,8 @@ def cmd_draw(deck):
     print()
     say("“" + random.choice(FORTUNES) + "”", CRIMSON, italic=True, typing=True)
     print()
-    hint("When it's done: tarot done   ·   Cowardice: tarot return")
+    hint("When it's done:  {} done".format(RUN))
+    hint("Cowardice:       {} return".format(RUN))
 
 
 def cmd_done(deck, card_id=None):
@@ -664,7 +667,7 @@ def cmd_list(deck):
         say("Ashes: {} task{} conquered.".format(
             len(deck.graveyard), "" if len(deck.graveyard) == 1 else "s"),
             MUTED, center=False)
-    hint("(Numbers are the card numbers; finish one directly: tarot done 3)")
+    hint("Finish any card by number:  {} done 3".format(RUN))
     print()
 
 
