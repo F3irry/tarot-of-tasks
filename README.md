@@ -32,18 +32,28 @@ Needs Python 3.13 through the Windows `py` launcher. There are no dependencies t
 py -3.13 tarot.py
 ```
 
-That opens the interactive menu: **d**raw, **a**dd, **f**inish, **r**eturn,
-**l**ist, **s**huffle, **q**uit. You can also run a single command:
+First it asks for tasks you need to complete, one per line. Press Enter on an
+empty line to finish, or right away if your deck is already full. Then it
+shuffles and draws a card. Once the card is revealed, press a single key:
+
+| Key | What it does |
+| --- | --- |
+| **d** | Done: burn the card, then draw the next one |
+| **r** | Return the card to the deck, then draw again |
+| **q** | Quit. The card stays in your hand for next time |
+
+You can also run a single command:
 
 | Command | What it does |
 | --- | --- |
 | `py -3.13 tarot.py add "task" "another task"` | Seal tasks into the deck |
 | `py -3.13 tarot.py draw` | Shuffle, draw, flip, glow, and get your orders |
-| `py -3.13 tarot.py done` | Burn the card in your hand (finished!) |
-| `py -3.13 tarot.py done 3` | Burn card number 3 (or `III`) straight from the deck |
-| `py -3.13 tarot.py return` | Put the drawn card back. The deck will judge you |
+| `py -3.13 tarot.py done` (or `d`) | Burn the card in your hand (finished!) |
+| `py -3.13 tarot.py done 3` (or `d 3`) | Burn card number 3 (or `III`) straight from the deck |
+| `py -3.13 tarot.py return` (or `r`) | Put the drawn card back. The deck will judge you |
 | `py -3.13 tarot.py list` | See every card, the one in your hand, and your tally of burned cards |
 | `py -3.13 tarot.py shuffle` | Shuffle the deck |
+| `py -3.13 tarot.py menu` | The interactive menu: **d**raw, **a**dd, **f**inish, **r**eturn, **l**ist, **s**huffle, **q**uit |
 
 You hold one card at a time. Finish it or return it before drawing again.
 
@@ -66,5 +76,5 @@ Run the tests:
 .venv\Scripts\python -m pytest
 ```
 
-Each test name includes the requirement it checks (R1–R7). They are defined in
+Each test name includes the requirement it checks (R1–R9). They are defined in
 [spec.md](spec.md), which builds on the original [problem.md](problem.md).
