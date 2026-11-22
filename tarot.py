@@ -331,7 +331,10 @@ def visible_len(s):
 
 
 def say(text, rgb=WHITE, italic=False, bold=False, typing=False, center=True,
-        width=W + 2):
+        width=None):
+    if width is None:
+        # Centred text sits under the card; left-aligned text can use the line.
+        width = W + 2 if center else 76
     style = ""
     if COLOR:
         style = (ITALIC if italic else "") + (BOLD if bold else "") + fg(rgb)
