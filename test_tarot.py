@@ -281,9 +281,127 @@ def test_R7_errors_are_friendly_with_exit_code_1(deck_file):
 
 
 def test_R1_R2_R4_interactive_menu(deck_file):
-    code, out, err = run_cli(deck_file, stdin="a\nfeed the plants\n\nd\nf\nl\nq\n")
+    # R8 made no-argument runs start the task-entry flow; the menu is `menu`.
+    code, out, err = run_cli(deck_file, "menu",
+                             stdin="a\nfeed the plants\n\nd\nf\nl\nq\n")
     assert code == 0, err
     assert "T A R O T" in out
     assert "feed the plants" in out
     assert "burns" in out
     assert "conquered" in out
+
+
+def load(deck_file):
+    with open(deck_file, encoding="utf-8") as f:
+        return json.load(f)
+
+
+# --- R8: enter tasks before shuffling --------------------------------------
+
+def test_R8_no_args_asks_for_tasks_then_shuffles_and_draws(deck_file):
+    code, out, err = run_cli(deck_file, stdin="feed the cat\nwater plants\n\nq\n")
+    assert code == 0, err
+    assert out.count("sealed into the deck") == 2
+    assert "╔" in out
+    assert any(msg in " ".join(out.split()) for msg in tarot.FORTUNES)
+    data = load(deck_file)
+    assert data["drawn"]["task"] in ("feed the cat", "water plants")
+    assert len(data["cards"]) == 1
+
+
+def test_R8_no_new_tasks_still_draws_from_existing_deck(deck_file):
+    run_cli(deck_file, "add", "old task")
+    code, out, err = run_cli(deck_file, stdin="\nq\n")
+    assert code == 0, err
+    assert "sealed into the deck" not in out
+    assert load(deck_file)["drawn"]["task"] == "old task"
+
+
+def test_R8_empty_deck_and_no_tasks_is_a_message_not_a_crash(deck_file):
+    code, out, err = run_cli(deck_file, stdin="\n")
+    assert code == 0, err
+    assert "deck is empty" in out
+    assert err == ""
+
+
+def test_R8_held_card_is_offered_instead_of_drawing_a_new_one(deck_file):
+    run_cli(deck_file, "add", "first", "second")
+    run_cli(deck_file, "draw")
+    held = load(deck_file)["drawn"]["id"]
+    code, out, err = run_cli(deck_file, stdin="third\n\nq\n")
+    assert code == 0, err
+    assert "already hold" in out
+    data = load(deck_file)
+    assert data["drawn"]["id"] == held
+    assert len(data["cards"]) == 2
+
+
+def test_R8_R9_loop_draws_until_the_deck_runs_out(deck_file):
+    code, out, err = run_cli(deck_file, stdin="one\ntwo\n\nd\nd\n")
+    assert code == 0, err
+    assert out.count("burns") == 2
+    data = load(deck_file)
+    assert data["cards"] == [] and data["drawn"] is None
+    assert len(data["graveyard"]) == 2
+
+
+# --- R9: quick keys after a draw --------------------------------------------
+
+def test_R9_d_key_burns_the_card_and_draws_the_next(deck_file):
+    code, out, err = run_cli(deck_file, stdin="one\ntwo\n\nd\nq\n")
+    assert code == 0, err
+    assert "burns" in out
+    data = load(deck_file)
+    assert len(data["graveyard"]) == 1
+    assert data["drawn"] is not None and data["cards"] == []
+
+
+def test_R9_r_key_returns_the_card_to_the_deck(deck_file):
+    code, out, err = run_cli(deck_file, stdin="one\n\nr\nq\n")
+    assert code == 0, err
+    assert "slinks back" in out
+    data = load(deck_file)
+    assert data["graveyard"] == []
+    assert data["drawn"]["task"] == "one"  # returned, then drawn again
+
+
+def test_R9_q_key_quits_and_keeps_the_card_in_hand(deck_file):
+    code, out, err = run_cli(deck_file, stdin="one\n\nQ\n")
+    assert code == 0, err
+    assert "burns" not in out and "slinks back" not in out
+    assert load(deck_file)["drawn"]["task"] == "one"
+
+
+def test_R9_unknown_key_asks_again(deck_file):
+    code, out, err = run_cli(deck_file, stdin="one\n\nx\nq\n")
+    assert code == 0, err
+    assert "Press d, r or q" in out
+    assert load(deck_file)["drawn"]["task"] == "one"
+
+
+def test_R9_end_of_input_counts_as_quit(deck_file):
+    code, out, err = run_cli(deck_file, stdin="one\n\n")
+    assert code == 0, err
+    assert err == ""
+    assert load(deck_file)["drawn"]["task"] == "one"
+
+
+def test_R9_read_key_takes_first_character_of_piped_line(monkeypatch):
+    import io
+    monkeypatch.setattr(sys, "stdin", io.StringIO("  Done\n"))
+    assert tarot.read_key() == "d"
+    assert tarot.read_key() == "q"  # end of input
+
+
+def test_R9_cli_aliases_d_and_r(deck_file):
+    run_cli(deck_file, "add", "one", "two")
+    run_cli(deck_file, "draw")
+    code, out, _ = run_cli(deck_file, "r")
+    assert code == 0 and "slinks back" in out
+    run_cli(deck_file, "draw")
+    code, out, _ = run_cli(deck_file, "d")
+    assert code == 0 and "burns" in out
+    code, out, _ = run_cli(deck_file, "d", "99")
+    assert code == 1 and "No card numbered 99" in out
+    data = load(deck_file)
+    assert len(data["graveyard"]) == 1 and len(data["cards"]) == 1
