@@ -10,9 +10,10 @@ A command-line app, written in Python 3.13 using only the standard library, that
 into a deck of tarot cards. You shuffle, draw a card, and that is your next
 task. Starting feels like a gamble instead of a chore.
 
-- **Run:** `py -3.13 tarot.py` (an interactive menu) or `py -3.13 tarot.py <command>`
-- **Commands:** `add`, `draw`, `done` (aliases `discard`, `finish`, `burn`),
-  `return`, `list`, `shuffle`, `menu`
+- **Run:** `py -3.13 tarot.py` (enter tasks, then draw: see R8) or
+  `py -3.13 tarot.py <command>`
+- **Commands:** `add`, `draw`, `done` (aliases `d`, `discard`, `finish`, `burn`),
+  `return` (alias `r`), `list`, `shuffle`, `menu` (the interactive menu)
 - **Storage:** `deck.json` next to `tarot.py`. Git ignores it because it holds
   personal tasks. Set the `TAROT_DECK` environment variable to override the path.
 
@@ -71,6 +72,27 @@ task. Starting feels like a gamble instead of a chore.
 ### R7: Friendly failure (derived)
 - Every expected problem (empty deck, empty hand, bad number, blank task,
   damaged file) prints a styled message and exits with code 1, with no traceback.
+
+### R8: Enter tasks before shuffling (round 2)
+- Running the app with no arguments first asks for tasks, one per line. An empty
+  line (or end of input) finishes. The tasks are added as in R1, and entering
+  none is fine.
+- Then it shuffles and draws as in R2 and asks for a quick key (R9).
+- If a card is already in hand, it is shown and you get the quick keys for it.
+  Nothing new is drawn until it is finished or returned (R2's one-card rule).
+- After `d` or `r`, the next card is shuffled and drawn, and you get the keys again.
+  This repeats until you quit or the deck is empty. An empty deck shows a message
+  and exits with code 0.
+- The interactive menu that used to be the default is now `menu`.
+
+### R9: Quick keys after a draw (round 2)
+- After a card is revealed by the no-argument flow, a single key press decides:
+  `d` = done (burn it, as in R4), `r` = return it (R6), `q` = quit and keep
+  the card in hand. Keys are case-insensitive and need no Enter when input is a
+  terminal. When input is piped, the first character of each line is used.
+- Any other key gets a short reminder and asks again. End of input or Ctrl+C
+  counts as `q`.
+- Command aliases: `d` for `done` (so `d 3` works too) and `r` for `return`.
 
 ## Out of scope (round 1)
 Due dates, priorities, multiple decks, editing a card's text, undo.
